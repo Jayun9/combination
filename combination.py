@@ -8,6 +8,7 @@ from cv2 import cv2 as cv
 import matplotlib.pyplot as plt
 import json as js
 import numpy as np
+import copy
 
 def main():
     cb  = Combination()
@@ -22,19 +23,19 @@ class Combination(Segmentation):
     def run_cb(self, result_path, sample_count): 
         bag_json_path = "{}/input/bag_json".format(result_path)
         bag_image_path = "{}/input/bag".format(result_path)
-        emblem_mask_path = "{}/input/emblem/emblem_mask".format(result_path)
-        emblem_image_path = "{}/input/emblem/emblem_image".format(result_path)
-        emblem_json_path = "{}/input/emblem_json".format(result_path)
+        emblem_mask_path = "{}/input/emblem/emblem_mask/gucci".format(result_path)
+        emblem_image_path = "{}/input/emblem/emblem_image/gucci".format(result_path)
+        emblem_json_path = "{}/input/emblem_json/gucci".format(result_path)
         output_json_path = "{}/output/json".format(result_path) 
         output_image_path = "{}/output/image".format(result_path)
 
         # 파일 리스트
         bag_json_list = os.listdir(bag_json_path)
-        emblem_mask_list = os.listdir(emblem_mask_path)
-        emblem_image_list = os.listdir(emblem_image_path)
+        emblem_mask_list_ = os.listdir(emblem_mask_path)
+        emblem_image_list_ = os.listdir(emblem_image_path)
 
         # 샘플 만들기
-        for _ in range(0,sample_count):                
+        for _ in range(0,int(sample_count/2)):                
             # bag image 준비
             # bag_file = random.choice(bag_image_list)
             # bag_image_list.remove(bag_file)
@@ -45,36 +46,46 @@ class Combination(Segmentation):
             bag_image = cv.imread("{}/{}".format(bag_image_path, bag_file))
             with open("./{}/{}".format(bag_json_path, bag_json), "r") as f:
                 bag_json_file = js.load(f)
-            # emblem image 준비
-            emblem_file = random.choice(emblem_image_list)
-            sp_emblem_file = emblem_file.split('_')[-1].split('.')[0]
-            ma_emblem_file = "{}.{}".format(emblem_file.split('.')[0], 'png')
-            emblem_image_list.remove(emblem_file)
-            emblem_image = cv.imread("{}/{}".format(emblem_image_path, emblem_file),cv.IMREAD_UNCHANGED)
-            # emblem mask 준비
-            emblem_mask_list.remove(ma_emblem_file)
-            mask_iamge = cv.imread("{}/{}".format(emblem_mask_path, emblem_file), cv.IMREAD_GRAYSCALE)
-            # emblem json
-            with open("./{}/{}_{}.json".format(emblem_json_path, emblem_file, sp_emblem_file), "r") as f:
-                emblem_json = js.load(f)
-            
-            #이미지 합성
-            bbox = self.bbox(emblem_image, emblem_json)
-            bbox_mask = self.bbox(mask_iamge, emblem_json)
-            try:
-                cb_img, new_json = self.combination(bag_image, bbox, bbox_mask, bag_json_file, emblem_json)
-            except:
-                continue
+            for _ in range(0,2):
+                literal = True
+                while literal:
+                    emblem_image_list = copy.deepcopy(emblem_image_list_)
+                    emblem_mask_list = copy.deepcopy(emblem_mask_list_)
+                    # emblem image 준비
+                    emblem_file = random.choice(emblem_image_list)
+                    sp_emblem_file = emblem_file.split('_')[-1].split('.')[0]
+                    ma_emblem_file = "{}.{}".format(emblem_file.split('.')[0], 'png')
+                    emblem_image_list.remove(emblem_file)
+                    emblem_image = cv.imread("{}/{}".format(emblem_image_path, emblem_file),cv.IMREAD_UNCHANGED)
+                    # emblem mask 준비
+                    emblem_mask_list.remove(ma_emblem_file)
+                    mask_iamge = cv.imread("{}/{}".format(emblem_mask_path, emblem_file), cv.IMREAD_GRAYSCALE)
+                    # emblem json
+                    with open("./{}/{}_{}.json".format(emblem_json_path, emblem_file, sp_emblem_file), "r") as f:
+                        emblem_json = js.load(f)
+                    
+                    #이미지 합성
+                    bbox = self.bbox(emblem_image, emblem_json)
+                    bbox_mask = self.bbox(mask_iamge, emblem_json)
+                    try:
+                        cb_img, new_json = self.combination(bag_image, bbox, bbox_mask, bag_json_file, emblem_json)
+                        literal = False
+                    except Exception:
+                        bag_json= random.choice(bag_json_list)
+                        bag_json_list.remove(bag_json)
+                        bag_file = "{}.{}".format(bag_json.split('.')[0],bag_json.split('.')[1]) 
+                        bag_image = cv.imread("{}/{}".format(bag_image_path, bag_file))
+                        with open("./{}/{}".format(bag_json_path, bag_json), "r") as f:
+                            bag_json_file = js.load(f)
+                        literal = True
+                    # image,  json 저장
+                    split_name = self.image_name.split('.')[0]
+                    save_file_name = '{}_{}.jpg'.format(split_name, self.category_name)
 
-            # image,  json 저장
-            split_name = self.image_name.split('.')[0]
-            save_file_name = '{}_{}.jpg'.format(split_name, self.category_name)
-
-            # json
-            with open('./{}/{}.json'.format(output_json_path, save_file_name),'w') as f:
-                js.dump(new_json,f)
-            cv.imwrite('./{}/{}'.format(output_image_path, save_file_name), cb_img)
-        pass
+                    # json
+                    with open('./{}/{}.json'.format(output_json_path, save_file_name),'w') as f:
+                        js.dump(new_json,f)
+                    cv.imwrite('./{}/{}'.format(output_image_path, save_file_name), cb_img)
 
     def run(self,json_load_path, json_list, json_save_path, image_save_path):
         jsonfile = ProcessJSON()
@@ -149,10 +160,17 @@ class Combination(Segmentation):
     def roi_setting(self, bag_img, bbox_img):
         img_shape = bag_img.shape
         bbox_shape = bbox_img.shape
+        bbox_size = bbox_shape[0] * bbox_shape[1]
         # 임시로 지정한 코드 수정할 것
         center_x = int(img_shape[0]/2-bbox_shape[0]/2); center_y = int(img_shape[1]/2 - bbox_shape[1]/2)
         width = center_x + bbox_shape[0]; height = center_y + bbox_shape[1]
         roi = bag_img[center_x:width, center_y:height]
+        roi_gray = cv.cvtColor(roi, cv.COLOR_RGBA2GRAY)
+        hist = cv.calcHist([roi_gray],[0],None,[256],[0,256])
+        white = hist[250:256].sum()
+        white_area = (white / bbox_size) * 100
+        if white_area >=50:
+            raise Exception('bbox정제가 이상해 넘어갈 것')
         return roi, (center_x, center_y, width, height)
 
     # 실제 합성
