@@ -19,13 +19,14 @@ class Combination(Segmentation):
         self.mask = None
         self.image_name = None
         self.category_name = None
+        self.imagenumber = 0
 
     def run_cb(self, result_path, sample_count): 
         bag_json_path = "{}/input/bag_json".format(result_path)
         bag_image_path = "{}/input/bag".format(result_path)
-        emblem_mask_path = "{}/input/emblem/emblem_mask/gucci".format(result_path)
-        emblem_image_path = "{}/input/emblem/emblem_image/gucci".format(result_path)
-        emblem_json_path = "{}/input/emblem_json/gucci".format(result_path)
+        emblem_mask_path = "{}/input/emblem/emblem_mask/chanel".format(result_path)
+        emblem_image_path = "{}/input/emblem/emblem_image/chanel".format(result_path)
+        emblem_json_path = "{}/input/emblem_json/chanel".format(result_path)
         output_json_path = "{}/output/json".format(result_path) 
         output_image_path = "{}/output/image".format(result_path)
 
@@ -42,13 +43,13 @@ class Combination(Segmentation):
             # bag_image = cv.imread("{}/{}".format(bag_image_path, bag_file))
             bag_json= random.choice(bag_json_list)
             bag_json_list.remove(bag_json)
-            bag_file = "{}.{}".format(bag_json.split('.')[0],bag_json.split('.')[1]) 
-            bag_image = cv.imread("{}/{}".format(bag_image_path, bag_file))
-            with open("./{}/{}".format(bag_json_path, bag_json), "r") as f:
-                bag_json_file = js.load(f)
-            for _ in range(0,2):
+            for i in range(0,2):
                 literal = True
                 while literal:
+                    bag_file = "{}.{}".format(bag_json.split('.')[0],bag_json.split('.')[1]) 
+                    bag_image = cv.imread("{}/{}".format(bag_image_path, bag_file))
+                    with open("./{}/{}".format(bag_json_path, bag_json), "r") as f:
+                        bag_json_file = js.load(f)
                     emblem_image_list = copy.deepcopy(emblem_image_list_)
                     emblem_mask_list = copy.deepcopy(emblem_mask_list_)
                     # emblem image 준비
@@ -70,22 +71,18 @@ class Combination(Segmentation):
                     try:
                         cb_img, new_json = self.combination(bag_image, bbox, bbox_mask, bag_json_file, emblem_json)
                         literal = False
+                        split_name = self.image_name.split('.')[0]
+                        save_file_name = '{}_{}_{}.jpg'.format(split_name, self.category_name, i+1)
+
+                        # json
+                        with open('./{}/{}.json'.format(output_json_path, save_file_name),'w') as f:
+                            js.dump(new_json,f)
+                        cv.imwrite('./{}/{}'.format(output_image_path, save_file_name), cb_img)
                     except Exception:
                         bag_json= random.choice(bag_json_list)
                         bag_json_list.remove(bag_json)
-                        bag_file = "{}.{}".format(bag_json.split('.')[0],bag_json.split('.')[1]) 
-                        bag_image = cv.imread("{}/{}".format(bag_image_path, bag_file))
-                        with open("./{}/{}".format(bag_json_path, bag_json), "r") as f:
-                            bag_json_file = js.load(f)
                         literal = True
                     # image,  json 저장
-                    split_name = self.image_name.split('.')[0]
-                    save_file_name = '{}_{}.jpg'.format(split_name, self.category_name)
-
-                    # json
-                    with open('./{}/{}.json'.format(output_json_path, save_file_name),'w') as f:
-                        js.dump(new_json,f)
-                    cv.imwrite('./{}/{}'.format(output_image_path, save_file_name), cb_img)
 
     def run(self,json_load_path, json_list, json_save_path, image_save_path):
         jsonfile = ProcessJSON()
